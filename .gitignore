@@ -2,3 +2,8 @@
 *.pth
 results/36acdf4f3edf0a14ffb2b2c68ba47e93abd9448825202377ddb16dae8114fe07.accd894ff58c6ff7bd4f3072890776c14f4ea34fcc08e79cd88c2d157756dceb
 results/36acdf4f3edf0a14ffb2b2c68ba47e93abd9448825202377ddb16dae8114fe07.accd894ff58c6ff7bd4f3072890776c14f4ea34fcc08e79cd88c2d157756dceb.json
+*.jpg
+*.xml
+.idea/.name
+*.iml
+*.pyc

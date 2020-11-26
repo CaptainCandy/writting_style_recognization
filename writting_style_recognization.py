@@ -25,7 +25,7 @@ from torchtext.data import Iterator
 from torchtext.data import Example
 from torchtext.data import BucketIterator
 
-from mymodel import MyNet, TextCNN
+from mymodel import MyNet, TextCNN, TextRNN, TextRCNN, TextRNN_Atten
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 path = "./dataset/"
@@ -79,6 +79,7 @@ def load_data(path):
     # 定义lebel到数字的映射关系
     labels = {'LX': 0, 'MY': 1, 'QZS': 2, 'WXB': 3, 'ZAL': 4}
 
+    # max_len = 0
     files = os.listdir(path)
     for file in files:
         if not os.path.isdir(file) and not file[0] == '.':
@@ -86,12 +87,15 @@ def load_data(path):
             for index,line in enumerate(f.readlines()):
                 sentences.append(line)
                 target.append(labels[file[:-4]])
+                # if len(line) > max_len:
+                #     max_len = len(line)
 
     return list(zip(sentences, target))
 
 # 定义Field
 # Field可以理解为特定的文本数据类型
-TEXT  = Field(sequential=True, tokenize=lambda x: jb.lcut(x), lower=True, use_vocab=True)
+TEXT  = Field(sequential=True, tokenize=lambda x: jb.lcut(x),
+              lower=True, use_vocab=True, fix_length=268)
 LABEL = Field(sequential=False, use_vocab=False)
 FIELDS = [('text', TEXT), ('category', LABEL)]
 
@@ -103,14 +107,19 @@ examples = list(map(lambda x: Example.fromlist(list(x), fields=FIELDS), mydata))
 dataset = Dataset(examples, fields=FIELDS)
 # 构建中文词汇表
 TEXT.build_vocab(dataset)
-tfidf(path)
+# tfidf(path)
+
+max_len = 0
+for t in dataset:
+    if len(t.text) > max_len:
+        max_len = len(t.text)
 
 # 切分数据集
 train, val = dataset.split(split_ratio=0.7)
 
 # 生成可迭代的mini-batch
 train_iter, val_iter = BucketIterator.splits(
-    (train,val), # 数据集
+    (train, val), # 数据集
     batch_sizes=(8, 8),
     device=device, # 如果使用gpu，此处将-1更换为GPU的编号
     sort_key=lambda x: len(x.text), 
@@ -118,11 +127,16 @@ train_iter, val_iter = BucketIterator.splits(
     repeat=False
 )
 
+print("Max length: %s" % max_len)
 print(train.examples[0].text[0], train.examples[0].category)
 print('Finish loading data on %s.' % device)
 
+#%%
 # 创建模型实例
-model = TextCNN(TEXT)
+# model = TextCNN(TEXT)
+# model = TextRNN(TEXT)
+model = TextRCNN(TEXT)
+# model = TextRNN_Atten(TEXT)
 model = model.to(device)
 # for name, parameters in model.named_parameters():
 #     print(name, ':', parameters.size())
@@ -193,7 +207,7 @@ print('Best val acc: %s' % best_acc)
 # 保存模型
 model.load_state_dict(best_model_wts)
 timeStr = time.strftime("%Y-%m-%d_%Hh%Mm%Ss", time.localtime(time.time()))
-model_name = 'TextCNN_v2_%s' % (timeStr)
+model_name = 'TextRCNN_v0_%s' % (timeStr)
 torch.save(model, './results/%s.pth' % model_name)
 
 # 绘制曲线
