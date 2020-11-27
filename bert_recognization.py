@@ -6,6 +6,8 @@ import copy
 import time
 import datetime
 import matplotlib.pyplot as plt
+import jieba as jb
+from torchtext.data import Field
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW
@@ -36,8 +38,35 @@ def load_data(path):
     return sentences, target
 
 
+def load_jb_token(sentences, limit_size=198):
+    tokens = []
+    for sen in sentences:
+        token = jb.lcut(sen)[:limit_size]
+        if len(tokens) < limit_size + 2:  # 补齐
+            token.extend(['<pad>'] * (limit_size + 2 - len(tokens)))
+        tokens.append(token)
+    return tokens
+
+
+# 将每一句转成数字（大于126做截断，小于126做PADDING，加上首尾两个标识，长度总共等于128）
+def convert_text_to_token(tokenizer, sentence, limit_size=198):
+    tokens = tokenizer.encode(sentence[:limit_size])  # 直接截断
+    if len(tokens) < limit_size + 2:  # 补齐（pad的索引号就是0）
+        tokens.extend([0] * (limit_size + 2 - len(tokens)))
+    return tokens
+
+
+# 建立mask
+def attention_masks(input_ids):
+    atten_masks = []
+    for seq in input_ids:
+        seq_mask = [float(i > 0) for i in seq]
+        atten_masks.append(seq_mask)
+    return atten_masks
+
+
 SEED = 123
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 LEARNING_RATE = 2e-5
 WEIGHT_DECAY = 1e-2
 EPSILON = 1e-8
@@ -52,46 +81,35 @@ torch.manual_seed(SEED)
 sentences, target = load_data(path)
 target = torch.tensor(target)
 
+# 定义Field
+# Field可以理解为特定的文本数据类型
+# TEXT = Field(sequential=True, tokenize=lambda x: jb.lcut(x),
+#               lower=True, use_vocab=True, fix_length=128)
+# tokens = load_jb_token(sentences)
+# TEXT.build_vocab(tokens)
+# input_tokens = TEXT.process(tokens, device=device).transpose(0, 1)
+
 # BertTokenizer进行编码，将每一句转成数字
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese', cache_dir="./results")
 print(sentences[2])
 print(tokenizer.tokenize(sentences[2]))
 print(tokenizer.encode(sentences[2]))
 print(tokenizer.convert_ids_to_tokens(tokenizer.encode(sentences[2])))
-
-
-# 将每一句转成数字（大于126做截断，小于126做PADDING，加上首尾两个标识，长度总共等于128）
-def convert_text_to_token(tokenizer, sentence, limit_size=200):
-    tokens = tokenizer.encode(sentence[:limit_size])  # 直接截断
-    if len(tokens) < limit_size + 2:  # 补齐（pad的索引号就是0）
-        tokens.extend([0] * (limit_size + 2 - len(tokens)))
-    return tokens
-
+# print(jb.lcut(sentences[2]))
+# print([TEXT.vocab.stoi[i] for i in jb.lcut(sentences[2])])
 
 input_ids = [convert_text_to_token(tokenizer, sen) for sen in sentences]
 
 input_tokens = torch.tensor(input_ids)
 print("token shape:", input_tokens.shape)  # torch.Size([10000, 128])
 
-
-# 建立mask
-def attention_masks(input_ids):
-    atten_masks = []
-    for seq in input_ids:
-        seq_mask = [float(i > 0) for i in seq]
-        atten_masks.append(seq_mask)
-    return atten_masks
-
-
 atten_masks = attention_masks(input_ids)
 attention_tokens = torch.tensor(atten_masks)
 
-
-train_inputs, test_inputs, train_labels, test_labels = train_test_split(input_tokens, target, random_state=666, test_size=0.2)
-train_masks, test_masks, _, _ = train_test_split(attention_tokens, input_tokens, random_state=666, test_size=0.2)
+train_inputs, test_inputs, train_labels, test_labels = train_test_split(input_tokens, target, random_state=666, test_size=0.3)
+train_masks, test_masks, _, _ = train_test_split(attention_tokens, input_tokens, random_state=666, test_size=0.3)
 print(train_inputs.shape, test_inputs.shape)      #torch.Size([8000, 128]) torch.Size([2000, 128])
 print(train_masks.shape)                          #torch.Size([8000, 128])和train_inputs形状一样
-
 print(train_inputs[0])
 print(train_masks[0])
 

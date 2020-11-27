@@ -63,6 +63,14 @@ class TextRNN(nn.Module):
         return out
 
 
+class GlobalMaxPool1d(nn.Module):
+    def __init__(self):
+        super(GlobalMaxPool1d, self).__init__()
+
+    def forward(self, x):
+        return torch.max_pool1d(x, kernel_size=x.shape[-1])
+
+
 class TextRCNN(nn.Module):
     def __init__(self, field):
         super(TextRCNN, self).__init__()
@@ -70,7 +78,7 @@ class TextRCNN(nn.Module):
         self.lstm = nn.LSTM(256, hidden_size=128, num_layers=2,
                             bidirectional=True, batch_first=True, dropout=0.5)
         # 每句话处理成的长度(短填长切)
-        self.maxpool = nn.MaxPool1d(268)
+        self.maxpool = GlobalMaxPool1d()
         # fc的输入是LSTM输出大小+embedding层的输出大小
         self.fc = nn.Linear(128 * 2 + 256, 5)
 

@@ -95,7 +95,7 @@ def load_data(path):
 # 定义Field
 # Field可以理解为特定的文本数据类型
 TEXT  = Field(sequential=True, tokenize=lambda x: jb.lcut(x),
-              lower=True, use_vocab=True, fix_length=268)
+              lower=True, use_vocab=True)
 LABEL = Field(sequential=False, use_vocab=False)
 FIELDS = [('text', TEXT), ('category', LABEL)]
 
@@ -207,8 +207,8 @@ print('Best val acc: %s' % best_acc)
 # 保存模型
 model.load_state_dict(best_model_wts)
 timeStr = time.strftime("%Y-%m-%d_%Hh%Mm%Ss", time.localtime(time.time()))
-model_name = 'TextRCNN_v0_%s' % (timeStr)
-torch.save(model, './results/%s.pth' % model_name)
+model_name = 'TextRCNN_v1_%s' % (timeStr)
+torch.save(model, './results/%s.pth' % model_name, _use_new_zipfile_serialization=False)
 
 # 绘制曲线
 plt.figure(figsize=(15, 6))
